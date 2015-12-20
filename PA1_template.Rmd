@@ -1,0 +1,151 @@
+---
+title: "Personal Movement Using Activity Monitoring Devices"
+author: "Samuel Theosmy"
+date: "December 20, 2015"
+output: html_document
+---
+
+## Introduction
+
+It is now possible to collect a large amount of data about personal movement using activity monitoring devices such as a [Fitbit](http://www.fitbit.com/), [Nike Fuelband](http://www.nike.com/us/en_us/c/nikeplus-fuelband), or [Jawbone Up](https://jawbone.com/up). These type of devices are part of the "quantified self" movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. But these data remain under-utilized both because the raw data are hard to obtain and there is a lack of statistical methods and software for processing and interpreting the data.
+
+This assignment makes use of data from a personal activity monitoring device. This device collects data at 5 minute intervals through out the day. The data consists of two months of data from an anonymous individual collected during the months of October and November, 2012 and include the number of steps taken in 5 minute intervals each day.
+
+## Data
+
+The data for this assignment can be downloaded from the course web site:
+
+Dataset: Activity monitoring data [52K]
+The variables included in this dataset are:
+
+* steps: Number of steps taking in a 5-minute interval (missing values are coded as NA)
+
+* date: The date on which the measurement was taken in YYYY-MM-DD format
+
+* interval: Identifier for the 5-minute interval in which measurement was taken
+
+The dataset is stored in a comma-separated-value (CSV) file and there are a total of 17,568 observations in this dataset.
+
+## Loading and preprocessing the data
+
+```{r}
+getwd()
+
+if(!file.exists("data")){
+  dir.create("data")
+}
+
+setwd("data")
+data_url <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
+download.file(data_url, destfile = "Activity monitoring data.zip", mode = "wb")
+unzip("Activity monitoring data.zip")
+data <- read.csv("activity.csv", header = TRUE, sep = ",", na.strings = "NA",
+                colClass=c('integer', 'Date', 'integer'))
+data_table <- transform(data.frame(data))
+```
+
+## What is mean total number of steps taken per day?
+
+### Histogram of the total number of steps taken each day
+```{r}
+total_daily_steps <- aggregate(steps ~ date, data_table, sum)
+par(mfrow = c(1, 1))
+barplot(total_daily_steps$steps, names.arg = total_daily_steps$date, ylim=c(0, 25000), xlab="Dates", ylab="Total Steps")
+```
+
+### Mean of the total number of steps taken per day
+```{r}
+mean(total_daily_steps$steps)
+```
+
+### Median of the total number of steps taken per day
+```{r}
+median(total_daily_steps$steps)
+```
+
+## What is the average daily activity pattern?
+
+### Average number of steps taken in each 5-minute interval per day
+```{r}
+steps_per_interval <- aggregate(steps ~ interval, data_table, mean)
+par(mfrow = c(1, 1))
+plot(steps_per_interval, type = 'l', col = 'red',
+     main = "Plot of the 5-minute Interval and the Average Number of Steps Taken", 
+     xlab = "5-minute Interval", ylab = "Average Number of Steps Taken")
+
+```
+
+### 5-minute interval on average across all the days in the dataset that contains the maximum number of steps
+```{r}
+steps_per_interval$interval[which.max(steps_per_interval$steps)]
+```
+
+## Imputing missing values
+
+### Total Number of Missing Values in the Dataset(i.e. the total number of rows with NAs)
+```{r}
+sum(is.na(data_table))
+```
+
+### Strategy for filling in all of the missing values in the dataset using the mean for that 5-minute interval
+```{r}
+data_without_na <- data_table
+nas <- is.na(data_table)
+interval_mean <- tapply(data_without_na$steps, data_without_na$interval, mean, na.rm = TRUE)
+data_without_na[nas] <- interval_mean[as.character(data_without_na$interval[nas])]
+```
+
+### Proof of the new dataset doesn't contain any missing values
+```{r}
+head(data_without_na)
+tail(data_without_na)
+sum(is.na(data_without_na))
+```
+
+### Histogram of the Total Number of Steps Taken Each Day
+```{r}
+total_daily_steps2 <- aggregate(steps ~ date, data_without_na, sum)
+par(mfrow = c(1, 1))
+barplot(total_daily_steps2$steps, names.arg = total_daily_steps2$date, ylim=c(0, 25000), xlab="Dates", ylab="Total Steps")
+```
+
+### Mean of the total number of steps taken per day
+```{r}
+mean(total_daily_steps2$steps)
+```
+
+### Median of the total number of steps taken per day
+```{r}
+median(total_daily_steps2$steps)
+```
+
+The impact of imputing missing data with the average number of steps in the same 5-min interval is that both the mean and the median are equal to the same value: 10766.19.
+
+
+## Are there differences in activity patterns between weekdays and weekends?
+### Creation of a new factor variable in the dataset with two levels - "weekday" and "weekend" indicating whether a given date is a weekday or weekend day
+```{r}
+day_type <- function(dates) {
+  f <- function(date) {
+    if (weekdays(date) %in% c("Saturday", "Sunday")) {
+      "weekend"
+    }
+    else {
+      "weekday"
+    }
+  }
+  sapply(dates, f)
+}
+data_without_na$day_type <- as.factor(day_type(data_without_na$date))
+```
+
+### Average Number of Steps Taken (across all weekddays or weekends)
+```{r}
+library(lattice)
+steps_per_interval2 <- aggregate(steps ~ interval + day_type, data_without_na, mean)
+xyplot(steps ~ interval | day_type, data = steps_per_interval2, type = "l", lwd = 2,
+       layout = c(1, 2), 
+       xlab = "5-minute interval", 
+       ylab = "Average number of steps",
+       main = "Average Number of Steps Taken (across all weekddays or weekends)")
+```
